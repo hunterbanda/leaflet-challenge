@@ -1,5 +1,79 @@
-// Create the 'basemap' tile layer that will be the background of our map.
+// Create the tile layer for the map background
+let streetmap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+});
 
+// Create the map object
+let map = L.map("map", {
+  center: [20, 0], // General center of the world
+  zoom: 3,
+  layers: [streetmap]
+});
+
+// Function to determine marker color based on depth
+function getColor(depth) {
+  return depth > 90 ? "#ff0000" :
+         depth > 70 ? "#ff6600" :
+         depth > 50 ? "#ffcc00" :
+         depth > 30 ? "#ccff33" :
+         depth > 10 ? "#66ff66" :
+                      "#00ff00"; // Green for shallow depth
+}
+
+// Function to determine marker size based on magnitude
+function getRadius(magnitude) {
+  return magnitude ? magnitude * 4 : 1; // Scale the marker size
+}
+
+// Function to style each earthquake marker
+function styleInfo(feature) {
+  return {
+      radius: getRadius(feature.properties.mag),
+      fillColor: getColor(feature.geometry.coordinates[2]), // Depth
+      color: "#000",
+      weight: 0.5,
+      opacity: 1,
+      fillOpacity: 0.8
+  };
+}
+
+// Load earthquake data
+d3.json("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson").then(function(data) {
+  let earthquakes = L.geoJson(data, {
+      pointToLayer: function(feature, latlng) {
+          return L.circleMarker(latlng);
+      },
+      style: styleInfo,
+      onEachFeature: function(feature, layer) {
+          layer.bindPopup(
+              `<h3>Magnitude: ${feature.properties.mag}</h3>
+               <h4>Location: ${feature.properties.place}</h4>
+               <p>Depth: ${feature.geometry.coordinates[2]} km</p>`
+          );
+      }
+  });
+
+  earthquakes.addTo(map);
+
+  // Create legend
+  let legend = L.control({ position: "bottomright" });
+
+  legend.onAdd = function() {
+      let div = L.DomUtil.create("div", "info legend"),
+          depths = [-10, 10, 30, 50, 70, 90],
+          colors = ["#00ff00", "#66ff66", "#ccff33", "#ffcc00", "#ff6600", "#ff0000"];
+
+      div.innerHTML = "<h4>Depth (km)</h4>";
+      for (let i = 0; i < depths.length; i++) {
+          div.innerHTML +=
+              `<i style="background:${colors[i]}; width: 20px; height: 20px; display: inline-block;"></i> 
+              ${depths[i]}${depths[i + 1] ? `–${depths[i + 1]} km` : "+ km"}<br>`;
+      }
+      return div;
+  };
+
+  legend.addTo(map);
+});
 
 // OPTIONAL: Step 2
 // Create the 'street' tile layer as a second background of the map
